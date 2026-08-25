@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SVG Line Drawer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    header, footer { position: sticky; top: 0; background: color-mix(in oklab, Canvas 85%, #fff); backdrop-filter: blur(6px); border-bottom: 1px solid #ddd; padding: 10px 12px; z-index: 10; }
+    footer { top: auto; bottom: 0; border-top: 1px solid #ddd; border-bottom: 0; color: #666; text-align: center; }
+    main { padding: 12px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .toolbar > * { margin-right: 4px; }
+    .btn { padding: 6px 10px; border: 1px solid #bbb; border-radius: 12px; background: #fff; cursor: pointer; }
+    .btn.primary { background: #111; color: #fff; border-color: #111; }
+    .stage { max-width: 1100px; margin: 0 auto; aspect-ratio: 4/3; border: 1px solid #ddd; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 9999px color-mix(in oklab, Canvas 3%, transparent); overflow: hidden; position: relative; }
+    svg { width: 100%; height: 100%; touch-action: none; cursor: crosshair; user-select: none; }
+    .hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: #666; }
+    label { display: inline-flex; align-items: center; gap: 6px; }
+    input[type="range"] { vertical-align: middle; }
+    .btn {
+      padding: 6px 10px;
+      border: 1px solid color-mix(in oklab, CanvasText 20%, Canvas);
+      border-radius: 12px;
+      background: color-mix(in oklab, Canvas 95%, CanvasText 5%);
+      color: CanvasText;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="toolbar">
+      <strong>SVG Line Drawer</strong>
+      <span style="flex:1"></span>
+      <label>Color <input id="color" type="color" value="#111827" /></label>
+      <label>Width
+        <input id="width" type="range" min="1" max="16" step="1" value="3" />
+        <span id="widthVal">3</span>
+      </label>
+      <label><input id="transparent" type="checkbox" checked /> Transparent bg</label>
+      <input id="upload" type="file" accept="image/svg+xml" style="display:none" />
+      <button id="uploadBtn" class="btn" title="Upload SVG">Upload SVG</button>
+      <button id="undo" class="btn" title="Undo (⌘/Ctrl+Z)">Undo</button>
+      <button id="clear" class="btn" title="Clear all">Clear</button>
+      <button id="download" class="btn primary" title="Download as SVG">Download SVG</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stage">
+      <svg id="board" viewBox="0 0 1024 768" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="1024" height="768" fill="#ffffff"></rect>
+      </svg>
+      <div id="hint" class="hint">Click/touch and drag to draw lines</div>
+    </div>
+  </main>
+
+  <footer>
+    Tip: ⌘/Ctrl+Z to undo the last stroke. Your drawing downloads as a vector .svg.
+  </footer>
+
+  <script>
+    const svg = document.getElementById('board');
+    const colorEl = document.getElementById('color');
+    const widthEl = document.getElementById('width');
+    const widthVal = document.getElementById('widthVal');
+    const transparentEl = document.getElementById('transparent');
+    const uploadEl = document.getElementById('upload');
+    const hint = document.getElementById('hint');
+
+    let paths = [];
+    let isDrawing = false;
+    let activePolyline = null;
+
+    widthEl.addEventListener('input', () => widthVal.textContent = widthEl.value);
+
+    function clientToSvg(x, y) {
+      const pt = svg.createSVGPoint();
+      pt.x = x; pt.y = y;
+      const ctm = svg.getScreenCTM();
+      return ctm ? pt.matrixTransform(ctm.inverse()) : { x, y };
+    }
+
+    function beginDraw(evt) {
+      evt.preventDefault();
+      const p = evt.touches ? evt.touches[0] : evt;
+      const { x, y } = clientToSvg(p.clientX, p.clientY);
+      const path = { points: [[x, y]], color: colorEl.value, width: parseInt(widthEl.value, 10) };
+      paths.push(path);
+      isDrawing = true;
+
+      activePolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      activePolyline.setAttribute('fill', 'none');
+      activePolyline.setAttribute('stroke-linecap', 'round');
+      activePolyline.setAttribute('stroke-linejoin', 'round');
+      activePolyline.setAttribute('stroke', path.color);
+      activePolyline.setAttribute('stroke-width', path.width);
+      activePolyline.setAttribute('points', `${x},${y}`);
+      svg.appendChild(activePolyline);
+
+      hint.style.display = 'none';
+    }
+
+    function moveDraw(evt) {
+      if (!isDrawing) return;
+      evt.preventDefault();
+      const p = evt.touches ? evt.touches[0] : evt;
+      const { x, y } = clientToSvg(p.clientX, p.clientY);
+      const last = paths[paths.length - 1];
+      if (!last) return;
+      const pts = last.points;
+      const prev = pts[pts.length - 1];
+      if (!prev || Math.hypot(prev[0]-x, prev[1]-y) > 0.5) {
+        pts.push([x, y]);
+        activePolyline.setAttribute('points', pts.map(([px, py]) => `${px},${py}`).join(' '));
+      }
+    }
+
+    function endDraw(evt) {
+      if (!isDrawing) return;
+      evt.preventDefault();
+      isDrawing = false;
+      activePolyline = null;
+    }
+
+    svg.addEventListener('mousedown', beginDraw);
+    svg.addEventListener('mousemove', moveDraw);
+    window.addEventListener('mouseup', endDraw);
+    svg.addEventListener('touchstart', beginDraw, { passive: false });
+    svg.addEventListener('touchmove', moveDraw, { passive: false });
+    window.addEventListener('touchend', endDraw);
+
+    document.getElementById('undo').addEventListener('click', () => {
+      if (paths.length === 0) return;
+      paths.pop();
+      const polys = Array.from(svg.querySelectorAll('polyline'));
+      if (polys.length) svg.removeChild(polys[polys.length - 1]);
+      if (paths.length === 0) hint.style.display = '';
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      paths = [];
+      Array.from(svg.querySelectorAll('polyline')).forEach(el => el.remove());
+      hint.style.display = '';
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        document.getElementById('undo').click();
+      }
+    });
+
+    document.getElementById('download').addEventListener('click', () => {
+      const clone = svg.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      const vb = clone.getAttribute('viewBox') || `0 0 ${svg.clientWidth} ${svg.clientHeight}`;
+      const [minX, minY, vbW, vbH] = vb.split(/\s+/).map(Number);
+
+      if (!transparentEl.checked) {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', String(minX));
+        rect.setAttribute('y', String(minY));
+        rect.setAttribute('width', String(vbW));
+        rect.setAttribute('height', String(vbH));
+        rect.setAttribute('fill', '#ffffff');
+        clone.insertBefore(rect, clone.firstChild);
+      }
+
+      const xml = new XMLSerializer().serializeToString(clone);
+      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), {
+        href: url,
+        download: `drawing-${new Date().toISOString().replace(/[:.]/g, '-')}.svg`
+      });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('uploadBtn').addEventListener('click', () => uploadEl.click());
+    uploadEl.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(ev.target.result, 'image/svg+xml');
+        const imported = doc.documentElement.cloneNode(true);
+        // Replace only polylines or paths if present
+        Array.from(imported.children).forEach(el => {
+          if (el.tagName === 'polyline' || el.tagName === 'path') {
+            svg.appendChild(el);
+          }
+        });
+        hint.style.display = 'none';
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  </script>
+</body>
+</html>

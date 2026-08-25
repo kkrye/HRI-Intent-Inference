@@ -1,0 +1,34 @@
+services:
+  ur5_ros2_jazzy:
+    # Build the image from the Dockerfile in the current directory
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # Give the container a friendly name
+    container_name: ur5_jazzy_dev
+
+    # Mount your local workspace into the container for easy development
+    # Uncomment and replace '/path/to/your/ros2_ws' with your host workspace path
+    volumes:
+      - ./ros2_ws:/ros2_ws
+
+    # Essential for ROS 2 DDS/Discovery to work across a network (e.g., to a real robot or URSim)
+    # This also helps with running GUI applications if using the 'jazzy-desktop' base
+    network_mode: "host"
+
+    # Environment variables for ROS 2 and potential URSim/Robot connection
+    environment:
+      # Optional: set ROS domain ID for network isolation
+      - ROS_DOMAIN_ID=42
+      # Environment variables for GUI to work (for RViz/Gazebo, if using the desktop image)
+      - QT_X11_NO_MITSHM=1
+
+    # Pass necessary devices for real-time and network access, especially if connecting to a real robot or URSim on a fixed IP
+    # privileged: true # Uncomment if you encounter permission issues
+
+    # Command to run after the entrypoint, keeping the container open
+    command: "bash"
+
+    # Restart policy
+    # restart: "unless-stopped"
