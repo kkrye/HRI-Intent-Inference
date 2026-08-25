@@ -1,0 +1,6 @@
+# Request: The target pose
+geometry_msgs/Pose[] target_poses
+---
+# Response: Success/Failure status
+bool success
+string message

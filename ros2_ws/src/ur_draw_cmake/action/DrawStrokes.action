@@ -1,0 +1,17 @@
+# Goal: List of strokes to draw
+ur_draw_cmake/Stroke[] strokes
+int32 img_width    # Width of the source image in pixels
+int32 img_length   # Height/length of the source image in pixels
+
+---
+# Result: Success status and message
+bool success
+string message
+int32 strokes_completed
+
+---
+# Feedback: Progress updates
+int32 current_stroke
+int32 total_strokes
+float32 percent_complete
+string status_message

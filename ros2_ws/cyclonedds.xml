@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CycloneDDS xmlns="https://purl.org/cyclonedds/xml"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="https://purl.org/cyclonedds/xml https://downloads.eclipse.org/cyclonedds/schemas/config.xsd">
+    <Domain id="42">
+        <Discovery>
+            <Peers>
+                <Peer address="192.168.56.10"/>
+                <Peer address="192.168.56.50"/>
+                <Peer address="192.168.56.100"/>
+            </Peers>
+        </Discovery>
+
+        <General>
+            <Interfaces>
+                <NetworkInterface address="192.168.56.10"/>
+            </Interfaces>
+            </General>
+
+    </Domain>
+</CycloneDDS>
